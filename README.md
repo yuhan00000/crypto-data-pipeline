@@ -1,6 +1,6 @@
 ## Crypto Data Pipeline
 
-This project is a **beginner-friendly data engineering pipeline** that collects daily cryptocurrency prices (Bitcoin and Ethereum) from the **CoinGecko API**, stores them in a CSV file, and generates a **Bitcoin price trend chart**.
+ I built this project as a **beginner-friendly data engineering exercise**. It’s a small Python ETL pipeline that collects daily cryptocurrency prices (Bitcoin and Ethereum) from the **CoinGecko API**, stores them in a CSV file, and generates a Bitcoin price trend chart.
 
 The goal is to demonstrate a simple **ETL (Extract–Transform–Load)** workflow using Python, `pandas`, and `matplotlib`.
 
@@ -77,13 +77,13 @@ After running:
 - If `data/crypto_prices.csv` does not exist, it will be **created** with a header.
 - If it already exists, new rows will be **appended** without duplicating the header.
 
-You can run this script once per day (or as often as you like) to grow your dataset over time.
+I run this script once per day (or as often) to slowly build up my historical price dataset.
 
 ---
 
 ## Generating the Bitcoin Price Trend Chart
 
-Once you have some data in `data/crypto_prices.csv`, you can generate a **Bitcoin price trend chart**.
+Once I have some data in `data/crypto_prices.csv`, I generate a **Bitcoin price trend chart**.
 
 From the project root, run:
 
@@ -151,7 +151,7 @@ flowchart LR
 
 ## How to Extend This Project
 
-Here are some ideas to turn this into a richer data engineering project:
+This is just a starting point for me. Here are some directions I might take it:
 
 - **Scheduling**  
   - Use Windows Task Scheduler (on Windows) or `cron` (on Linux/macOS) to run:
@@ -166,5 +166,5 @@ Here are some ideas to turn this into a richer data engineering project:
 - **Dashboards**  
   - Build a simple dashboard using tools like Streamlit or a BI tool to visualize trends interactively.
 
-This repository gives you a **solid starting point** for understanding ETL concepts in a real-world, but manageable, context.
+This project is my way of learning ETL fundamentals with a real-world dataset that I find interesting.
 
