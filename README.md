@@ -1,26 +1,28 @@
 ## Crypto Data Pipeline
 
- I built this project as a **beginner-friendly data engineering exercise**. It’s a small Python ETL pipeline that collects daily cryptocurrency prices (Bitcoin and Ethereum) from the **CoinGecko API**, stores them in a CSV file, and generates a Bitcoin price trend chart.
+I built this project as a **beginner-friendly data engineering exercise**. It’s a small Python ETL pipeline that collects cryptocurrency prices (Bitcoin and Ethereum) from the **CoinGecko API** and stores them in **PostgreSQL**.
 
-The goal is to demonstrate a simple **ETL (Extract–Transform–Load)** workflow using Python, `pandas`, and `matplotlib`.
+The goal is to practice a simple **ETL (Extract–Transform–Load)** workflow using Python, `requests`, `pandas`, and `psycopg2`.
 
 ---
 
 ## Project Structure
 
 - `data/`  
-  Stores the CSV file with historical cryptocurrency prices.
-  - `crypto_prices.csv` – created/updated by the ETL script.
+  (Legacy) Stores the old CSV file version of historical prices from the first version of the project.
+
+- `database/`  
+  Stores the SQL schema I use to create the PostgreSQL table.
+  - `schema.sql` – creates the `crypto_prices` table.
 
 - `scripts/`  
   Contains the Python scripts that implement the pipeline.
   - `etl_crypto_prices.py` – main ETL script:
     - Extracts Bitcoin and Ethereum prices from CoinGecko.
     - Transforms the data into a `pandas.DataFrame` with a timestamp.
-    - Appends the records into `data/crypto_prices.csv`.
+    - Inserts a new row into PostgreSQL (`crypto_prices` table) every time it runs.
   - `plot_bitcoin_trend.py` – visualization script:
-    - Reads `data/crypto_prices.csv`.
-    - Filters Bitcoin prices.
+    - Reads Bitcoin prices from the PostgreSQL `crypto_prices` table.
     - Generates a line chart and saves it to `charts/bitcoin_price_trend.png`.
 
 - `charts/`  
@@ -52,6 +54,42 @@ This installs:
 - `requests` – to call the CoinGecko API.
 - `pandas` – to work with tabular data (DataFrame).
 - `matplotlib` – to create the Bitcoin price chart.
+- `psycopg2-binary` – to connect to PostgreSQL from Python.
+
+---
+
+## PostgreSQL Setup (Local)
+
+Before running the ETL script, two things is needed:
+
+1. Create a PostgreSQL database (example name: `crypto_db`)
+2. Apply the schema in `database/schema.sql` to create the `crypto_prices` table
+
+Example command (requires `psql`):
+
+```bash
+psql -h localhost -U postgres -d crypto_db -f database/schema.sql
+```
+
+### Environment Variables for DB Connection
+
+The ETL script reads connection settings from environment variables:
+
+- `PGHOST`
+- `PGPORT`
+- `PGDATABASE`
+- `PGUSER`
+- `PGPASSWORD`
+
+Example (PowerShell):
+
+```powershell
+$env:PGHOST="localhost"
+$env:PGPORT="5432"
+$env:PGDATABASE="crypto_db"
+$env:PGUSER="postgres"
+$env:PGPASSWORD="your_password"
+```
 
 ---
 
@@ -64,7 +102,10 @@ The ETL script:
    - `timestamp` – when the data was fetched (UTC).
    - `coin` – the coin name (`bitcoin` or `ethereum`).
    - `price_usd` – price in US dollars.
-3. **Loads** (appends) the rows into `data/crypto_prices.csv`.
+3. **Loads** (inserts) a new row into PostgreSQL table `crypto_prices` with columns:
+   - `timestamp`
+   - `bitcoin_price`
+   - `ethereum_price`
 
 From the project root, run:
 
@@ -74,16 +115,12 @@ python scripts/etl_crypto_prices.py
 
 After running:
 
-- If `data/crypto_prices.csv` does not exist, it will be **created** with a header.
-- If it already exists, new rows will be **appended** without duplicating the header.
-
-I run this script once per day (or as often) to slowly build up my historical price dataset.
+- The script inserts **one new row** into PostgreSQL **every time it runs**.
+- Over time, the table becomes a historical dataset that can query with SQL.
 
 ---
 
 ## Generating the Bitcoin Price Trend Chart
-
-Once I have some data in `data/crypto_prices.csv`, I generate a **Bitcoin price trend chart**.
 
 From the project root, run:
 
@@ -92,19 +129,17 @@ python scripts/plot_bitcoin_trend.py
 ```
 
 The script will:
-
-1. Read `data/crypto_prices.csv` using `pandas`.
-2. Filter rows where `coin == "bitcoin"`.
-3. Parse the `timestamp` column into proper datetime objects.
-4. Sort the records by time.
-5. Plot **timestamp vs. `price_usd`** using `matplotlib`.
-6. Save the chart to:
+1. Read Bitcoin prices from the PostgreSQL `crypto_prices` table.
+2. Parse the `timestamp` column into proper datetime objects.
+3. Sort the records by time.
+4. Plot **timestamp vs. bitcoin_price** using `matplotlib`.
+5. Save the chart to:
 
 ```text
 charts/bitcoin_price_trend.png
 ```
 
-If the CSV is missing or there is no Bitcoin data, the script will raise a clear error message explaining what to fix.
+If the Postgres is missing or there is no Bitcoin data, the script will raise a clear error message explaining what to fix.
 
 ---
 
@@ -118,8 +153,8 @@ flowchart LR
   etl --> extract[Extract_from_CoinGecko]
   extract --> transform[Transform_to_DataFrame]
   transform --> addTs[Add_timestamp_column]
-  addTs --> appendCsv[Append_to_CSV]
-  appendCsv --> chartScript[Chart_Script]
+  addTs --> insertDb[Insert_into_PostgreSQL]
+  insertDb --> chartScript[Chart_Script]
   chartScript --> btcChart[Bitcoin_price_chart.png]
 ```
 
@@ -138,9 +173,9 @@ flowchart LR
     - `coin`: `"bitcoin"` or `"ethereum"`.
     - `price_usd`: float price in USD.
 
-- **Load** (`scripts/etl_crypto_prices.py` – `append_to_csv` function)
-  - Appends the DataFrame to `data/crypto_prices.csv`.
-  - Creates the file and folder if they do not exist.
+- **Load** (`scripts/etl_crypto_prices.py` – `insert_row_into_postgres` function)
+  - Inserts one row into PostgreSQL table `crypto_prices` per run.
+  - Connection settings come from environment variables (so I don’t hardcode secrets).
 
 - **Visualization** (`scripts/plot_bitcoin_trend.py`)
   - Loads the CSV.
@@ -161,7 +196,7 @@ This is just a starting point for me. Here are some directions I might take it:
   - Add more coin IDs (e.g., `litecoin`, `cardano`) or track prices in other fiat currencies.
 
 - **Database Storage**  
-  - Instead of writing to CSV, load data into a relational database (e.g., SQLite, PostgreSQL) for more advanced querying.
+  - I already migrated the pipeline to PostgreSQL. Next, I might add indexing and basic data quality checks.
 
 - **Dashboards**  
   - Build a simple dashboard using tools like Streamlit or a BI tool to visualize trends interactively.

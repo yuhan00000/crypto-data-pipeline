@@ -3,37 +3,34 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from db import get_connection  # assumes you run: python scripts/plot_bitcoin_trend.py
 
-def load_bitcoin_data(csv_path: Path) -> pd.DataFrame:
+
+def load_bitcoin_from_postgres() -> pd.DataFrame:
     """
-    Load the CSV file containing crypto prices and filter for Bitcoin only.
+    Load Bitcoin price data from the PostgreSQL table `crypto_prices`.
 
-    - Parses the timestamp column as datetime
-    - Sorts the records chronologically
-    - Returns a DataFrame with at least: timestamp, coin, price_usd
+    - Reads timestamp and bitcoin_price
+    - Sorts by time
     """
-    if not csv_path.exists():
-        raise FileNotFoundError(
-            f"CSV file not found at {csv_path}. "
-            "Run the ETL script first: python scripts/etl_crypto_prices.py"
-        )
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                '''
+                SELECT "timestamp", bitcoin_price
+                FROM crypto_prices
+                ORDER BY "timestamp";
+                '''
+            )
+            rows = cur.fetchall()
 
-    df = pd.read_csv(csv_path)
+    if not rows:
+        raise ValueError("No Bitcoin data found in crypto_prices table.")
 
-    if "coin" not in df.columns or "timestamp" not in df.columns or "price_usd" not in df.columns:
-        raise ValueError("CSV file does not have the expected columns: timestamp, coin, price_usd.")
-
-    # Keep only Bitcoin rows.
-    btc_df = df[df["coin"] == "bitcoin"].copy()
-
-    if btc_df.empty:
-        raise ValueError("No Bitcoin data found in the CSV. Make sure the ETL script is configured correctly.")
-
-    # Convert timestamp strings into datetime objects for plotting.
-    btc_df["timestamp"] = pd.to_datetime(btc_df["timestamp"], utc=True, errors="coerce")
-    btc_df = btc_df.sort_values("timestamp")
-
-    return btc_df
+    df = pd.DataFrame(rows, columns=["timestamp", "bitcoin_price"])
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df = df.sort_values("timestamp")
+    return df
 
 
 def plot_bitcoin_trend(btc_df: pd.DataFrame, output_path: Path) -> None:
@@ -46,9 +43,9 @@ def plot_bitcoin_trend(btc_df: pd.DataFrame, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     plt.figure(figsize=(10, 5))
-    plt.plot(btc_df["timestamp"], btc_df["price_usd"], marker="o", linestyle="-", label="Bitcoin (USD)")
+    plt.plot(btc_df["timestamp"], btc_df["bitcoin_price"], marker="o", linestyle="-", label="Bitcoin (USD)")
 
-    plt.title("Bitcoin Price Trend (USD)")
+    plt.title("Bitcoin Price Trend (USD) from PostgreSQL")
     plt.xlabel("Timestamp")
     plt.ylabel("Price (USD)")
     plt.grid(True, linestyle="--", alpha=0.5)
@@ -61,15 +58,14 @@ def plot_bitcoin_trend(btc_df: pd.DataFrame, output_path: Path) -> None:
 
 def run_plot() -> None:
     """
-    Load Bitcoin data from the CSV file and generate a trend chart.
+    Load Bitcoin data from PostgreSQL and generate a trend chart.
     The chart is saved into charts/bitcoin_price_trend.png.
     """
     project_root = Path(__file__).resolve().parents[1]
-    csv_path = project_root / "data" / "crypto_prices.csv"
     chart_path = project_root / "charts" / "bitcoin_price_trend.png"
 
-    print(f"Loading Bitcoin data from: {csv_path}")
-    btc_df = load_bitcoin_data(csv_path)
+    print("Loading Bitcoin data from PostgreSQL (table: crypto_prices)...")
+    btc_df = load_bitcoin_from_postgres()
 
     print("Preview of Bitcoin data:")
     print(btc_df.tail())
@@ -81,8 +77,6 @@ def run_plot() -> None:
 
 
 if __name__ == "__main__":
-    # Allow the script to be run directly from the command line.
     # Example:
     #   python scripts/plot_bitcoin_trend.py
     run_plot()
-
