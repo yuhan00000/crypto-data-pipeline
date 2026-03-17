@@ -15,7 +15,7 @@ class PostgresConfig:
     """
 
     host: str
-    port: str
+    port: int
     dbname: str
     user: str
     password: str

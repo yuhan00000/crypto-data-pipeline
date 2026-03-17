@@ -17,10 +17,12 @@ The goal is to practice a simple **ETL (Extract–Transform–Load)** workflow u
 
 - `scripts/`  
   Contains the Python scripts that implement the pipeline.
-  - `etl_crypto_prices.py` – main ETL script:
-    - Extracts Bitcoin and Ethereum prices from CoinGecko.
-    - Transforms the data into a `pandas.DataFrame` with a timestamp.
-    - Inserts a new row into PostgreSQL (`crypto_prices` table) every time it runs.
+  - `main.py` – orchestrates the pipeline (recommended entrypoint).
+  - `extract.py` – handles CoinGecko API requests.
+  - `transform.py` – cleans/formats the data and validates it.
+  - `load.py` – inserts/upserts data into PostgreSQL.
+  - `db.py` – PostgreSQL connection helper (reads env vars).
+  - `etl_crypto_prices.py` – legacy entrypoint that forwards to `main.py` (kept for backwards compatibility).
   - `plot_bitcoin_trend.py` – visualization script:
     - Reads Bitcoin prices from the PostgreSQL `crypto_prices` table.
     - Generates a line chart and saves it to `charts/bitcoin_price_trend.png`.
@@ -95,14 +97,17 @@ $env:PGPASSWORD="your_password"
 
 ## Running the ETL Pipeline
 
-The ETL script:
+The ETL pipeline:
 
 1. **Extracts** Bitcoin and Ethereum prices (in USD) from the CoinGecko API.
 2. **Transforms** the response into a tidy `pandas.DataFrame` with:
    - `timestamp` – when the data was fetched (UTC).
    - `coin` – the coin name (`bitcoin` or `ethereum`).
    - `price_usd` – price in US dollars.
-3. **Loads** (inserts) a new row into PostgreSQL table `crypto_prices` with columns:
+3. **Validates**:
+   - Bitcoin and Ethereum prices are not `None`
+   - Prices are numbers and greater than 0
+4. **Loads** (upserts) a row into PostgreSQL table `crypto_prices` with columns:
    - `timestamp`
    - `bitcoin_price`
    - `ethereum_price`
@@ -110,13 +115,13 @@ The ETL script:
 From the project root, run:
 
 ```bash
-python scripts/etl_crypto_prices.py
+python scripts/main.py
 ```
 
 After running:
 
-- The script inserts **one new row** into PostgreSQL **every time it runs**.
-- Over time, the table becomes a historical dataset that can query with SQL.
+- The script writes to PostgreSQL using **UPSERT** (`ON CONFLICT DO UPDATE`) on `timestamp`.
+- A unique index on `timestamp` prevents duplicates at the database level.
 
 ---
 
@@ -160,27 +165,22 @@ flowchart LR
 
 ### Components
 
-- **Extract** (`scripts/etl_crypto_prices.py` – `fetch_prices` function)
+- **Extract** (`scripts/extract.py` – `fetch_prices`)
   - Calls the CoinGecko Simple Price API:
     - Endpoint: `https://api.coingecko.com/api/v3/simple/price`
     - Coins: `bitcoin`, `ethereum`
     - Currency: `usd`
   - Handles basic HTTP errors and JSON parsing.
 
-- **Transform** (`scripts/etl_crypto_prices.py` – `transform_to_dataframe` function)
-  - Converts the API response into rows like:
-    - `timestamp`: ISO8601 formatted UTC timestamp.
-    - `coin`: `"bitcoin"` or `"ethereum"`.
-    - `price_usd`: float price in USD.
+- **Transform** (`scripts/transform.py` – `transform_prices`)
+  - Converts the API response into DataFrames and validates required values.
 
-- **Load** (`scripts/etl_crypto_prices.py` – `insert_row_into_postgres` function)
-  - Inserts one row into PostgreSQL table `crypto_prices` per run.
+- **Load** (`scripts/load.py` – `upsert_crypto_prices`)
+  - Upserts one row into PostgreSQL table `crypto_prices` per run.
   - Connection settings come from environment variables (so I don’t hardcode secrets).
 
 - **Visualization** (`scripts/plot_bitcoin_trend.py`)
-  - Loads the CSV.
-  - Filters for Bitcoin.
-  - Produces the chart in `charts/bitcoin_price_trend.png`.
+  - Reads prices from PostgreSQL and produces the chart in `charts/bitcoin_price_trend.png`.
 
 ---
 

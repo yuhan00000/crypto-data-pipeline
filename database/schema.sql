@@ -11,9 +11,8 @@ CREATE TABLE IF NOT EXISTS crypto_prices (
   ethereum_price DOUBLE PRECISION NOT NULL
 );
 
--- Optional: prevent accidental duplicate inserts for the same timestamp.
--- If you later decide you want "one row per run" even if timestamps collide,
--- you can remove this unique index.
--- CREATE UNIQUE INDEX IF NOT EXISTS ux_crypto_prices_timestamp
---   ON crypto_prices ("timestamp");
+-- Prevent duplicate rows for the same timestamp.
+-- This supports UPSERT logic: INSERT ... ON CONFLICT ("timestamp") DO UPDATE ...
+CREATE UNIQUE INDEX IF NOT EXISTS ux_crypto_prices_timestamp
+  ON crypto_prices ("timestamp");
 
