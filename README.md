@@ -1,8 +1,8 @@
 ## Crypto Data Pipeline
 
-I built this project as a **beginner-friendly data engineering exercise**. It’s a small Python ETL pipeline that collects cryptocurrency prices (Bitcoin and Ethereum) from the **CoinGecko API** and stores them in **PostgreSQL**.
+The pipeline collects cryptocurrency prices (Bitcoin and Ethereum) from the **CoinGecko API** and stores them in **PostgreSQL**. I focused on building a clean and modular ETL workflow, including data validation, upsert logic, and basic visualization.
 
-The goal is to practice a simple **ETL (Extract–Transform–Load)** workflow using Python, `requests`, `pandas`, and `psycopg2`.
+This project helped me move beyond simple scripts and think in terms of data pipeline design.
 
 ---
 
@@ -62,7 +62,7 @@ This installs:
 
 ## PostgreSQL Setup (Local)
 
-Before running the ETL script, two things is needed:
+Before running the ETL script, two things are needed:
 
 1. Create a PostgreSQL database (example name: `crypto_db`)
 2. Apply the schema in `database/schema.sql` to create the `crypto_prices` table
@@ -122,6 +122,8 @@ After running:
 
 - The script writes to PostgreSQL using **UPSERT** (`ON CONFLICT DO UPDATE`) on `timestamp`.
 - A unique index on `timestamp` prevents duplicates at the database level.
+
+The pipeline is designed to be idempotent, meaning repeated runs will not create duplicate records due to the use of UPSERT logic and a unique constraint on the timestamp column.
 
 ---
 
@@ -184,22 +186,34 @@ flowchart LR
 
 ---
 
-## How to Extend This Project
+## Challenges & What I Learned
 
-This is just a starting point for me. Here are some directions I might take it:
+One challenge I faced was setting up Apache Airflow with Docker for orchestration. Due to resource limitations on my local machine, I was unable to run the full Airflow stack. 
 
-- **Scheduling**  
-  - Use Windows Task Scheduler (on Windows) or `cron` (on Linux/macOS) to run:
-    - `python scripts/etl_crypto_prices.py` once per day.
+Instead, I focused on strengthening the core pipeline (ETL + PostgreSQL) and designed the code structure so that it can be easily integrated with Airflow in the future.
 
-- **More Coins / Currencies**  
-  - Add more coin IDs (e.g., `litecoin`, `cardano`) or track prices in other fiat currencies.
+I also learned:
+- How to design a modular ETL pipeline instead of writing everything in one script
+- How to use PostgreSQL with Python using psycopg2
+- How to handle data validation before inserting into a database
+- The importance of idempotency using UPSERT to avoid duplicate data
 
-- **Database Storage**  
-  - I already migrated the pipeline to PostgreSQL. Next, I might add indexing and basic data quality checks.
+---
 
-- **Dashboards**  
-  - Build a simple dashboard using tools like Streamlit or a BI tool to visualize trends interactively.
+## Future Improvements
 
-This project is my way of learning ETL fundamentals with a real-world dataset that I find interesting.
+In a production environment, I would extend this project by adding:
+
+- **Workflow orchestration using Apache Airflow**
+  - Schedule daily runs
+  - Monitor pipeline execution
+  - Handle retries and failures
+
+- **Containerization using Docker**
+  - Ensure consistent environment setup
+
+- **Data quality monitoring**
+  - Add automated checks and alerts
+
+This project is designed with this future architecture in mind.
 
